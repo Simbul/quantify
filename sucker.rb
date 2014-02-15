@@ -42,6 +42,13 @@ def spotify_id_from href
   href.split(':').last
 end
 
+def cache content, file, desc: 'objects'
+  puts "Caching #{desc}..."
+  File.open(file, 'w'){ |f| f.write(content.to_json) }
+  puts "Cached #{desc} in #{file}"
+  puts
+end
+
 if File.exists?(CACHE_FILE) && tracks = JSON.parse( IO.read(CACHE_FILE) )
   puts "Loaded #{tracks.count} tracks from #{CACHE_FILE}"
 else
@@ -67,10 +74,7 @@ else
   puts "#{tracks.count} tracks fetched"
   puts
 
-  puts "Caching tracks..."
-  File.open(CACHE_FILE, 'w'){ |file| file.write(tracks.to_json) }
-  puts "Cached tracks in #{CACHE_FILE}"
-  puts
+  cache(tracks, CACHE_FILE)
 end
 
 if File.exists?(ALBUMS_CACHE_FILE) && File.exists?(INDIVIDUAL_TRACKS_CACHE_FILE)
@@ -103,15 +107,8 @@ else
   puts "Found #{albums.count} albums and #{individual_tracks.count} tracks"
   puts
 
-  puts "Caching albums..."
-  File.open(ALBUMS_CACHE_FILE, 'w'){ |file| file.write(albums.to_json) }
-  puts "Cached albums in #{ALBUMS_CACHE_FILE}"
-  puts
-
-  puts "Caching individual tracks..."
-  File.open(INDIVIDUAL_TRACKS_CACHE_FILE, 'w'){ |file| file.write(individual_tracks.to_json) }
-  puts "Cached individual tracks in #{INDIVIDUAL_TRACKS_CACHE_FILE}"
-  puts
+  cache(albums, ALBUMS_CACHE_FILE)
+  cache(individual_tracks, INDIVIDUAL_TRACKS_CACHE_FILE)
 end
 
 consistency_check = albums.inject(0){ |sum, album| sum + album['track_ids'].count } + individual_tracks.count
