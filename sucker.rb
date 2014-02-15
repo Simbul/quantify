@@ -101,7 +101,7 @@ else
     else
       individual_tracks.concat(tracks)
     end
-    sleep 0.2 if tracks.count % 10 == 0 # Let's not hammer the API
+    sleep 0.2 if (albums.count + individual_tracks.count) % 10 == 0 # Let's not hammer the API
     progressbar.increment
   end
   puts "Found #{albums.count} albums and #{individual_tracks.count} tracks"
