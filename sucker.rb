@@ -24,7 +24,7 @@ def get_track id
     'artist' => response['track']['artists'].first['name'],
     'title' => response['track']['name'],
     'album' => response['track']['album']['name'],
-    'album_id' => response['track']['album']['href'],
+    'album_href' => response['track']['album']['href'],
   }
 end
 
@@ -80,7 +80,7 @@ if File.exists?(ALBUMS_CACHE_FILE) && File.exists?(INDIVIDUAL_TRACKS_CACHE_FILE)
   puts "Loaded #{individual_tracks.count} individual tracks from #{INDIVIDUAL_TRACKS_CACHE_FILE}"
 else
   puts "Grouping tracks by album..."
-  grouped_tracks = tracks.group_by{ |track| track['album_id'] }
+  grouped_tracks = tracks.group_by{ |track| track['album_href'] }
   puts "#{grouped_tracks.count} albums detected"
   puts
 
