@@ -231,7 +231,7 @@ else
     sleep 0.2 # Last.fm TOS (clause 4.4) require not to make "more than 5 requests per originating IP address per second, averaged over a 5 minute period"
     progressbar.increment
   end
-  puts "#{with_price(albums)} prices fetched, #{without_price(albums)} prices not found"
+  puts "#{with_price(albums).count} prices fetched, #{without_price(albums).count} prices not found"
   puts
 
   cache(albums, ENRICHED_ALBUMS_CACHE_FILE)
@@ -248,7 +248,7 @@ else
     sleep 0.2 # Last.fm TOS (clause 4.4) require not to make "more than 5 requests per originating IP address per second, averaged over a 5 minute period"
     progressbar.increment
   end
-  puts "#{with_price(individual_tracks)} prices fetched, #{without_price(individual_tracks)} prices not found"
+  puts "#{with_price(individual_tracks).count} prices fetched, #{without_price(individual_tracks).count} prices not found"
   puts
 
   cache(individual_tracks, ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE)
