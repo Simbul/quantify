@@ -1,6 +1,7 @@
 require 'json'
 require 'net/http'
 require 'open-uri'
+require 'cgi'
 require 'ruby-progressbar'
 
 # https://itunes.apple.com/search?term=middle%20cyclone&entity=album
@@ -17,11 +18,13 @@ SPOTIFY_TRACK_API_URL = 'http://ws.spotify.com/lookup/1/.json?uri=spotify:track:
 SPOTIFY_ALBUM_API_URL = 'http://ws.spotify.com/lookup/1/.json?uri=spotify:album:%s&extras=track'
 LASTFM_ALBUM_API_URL = "http://ws.audioscrobbler.com/2.0/?method=album.getbuylinks&artist=%s&album=%s&country=#{COUNTRY}&api_key=#{LASTFM_API_KEY}&format=json&autocorrect=1"
 LASTFM_TRACK_API_URL = "http://ws.audioscrobbler.com/2.0/?method=track.getbuylinks&artist=%s&track=%s&country=#{COUNTRY}&api_key=#{LASTFM_API_KEY}&format=json&autocorrect=1"
+ITUNES_ALBUM_API_URL = "https://itunes.apple.com/lookup?id=%s&entity=album&country=#{COUNTRY}"
 
 URIS_FILE = 'tracks.json'
 CACHE_FILE = 'tracks_cache.json'
 ALBUMS_CACHE_FILE = 'albums_cache.json'
 ENRICHED_ALBUMS_CACHE_FILE = 'enriched_albums_cache.json'
+ITUNES_ENRICHED_ALBUMS_CACHE_FILE = 'itunes_enriched_albums_cache.json'
 INDIVIDUAL_TRACKS_CACHE_FILE = 'individual_tracks_cache.json'
 ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE = 'enriched_individual_tracks_cache.json'
 
@@ -64,9 +67,36 @@ def enrich_price_from_lastfm! item, api_url
   response = JSON.parse(Net::HTTP.get(uri))
 
   itunes = response['affiliations']['downloads']['affiliation'].find{ |affiliation| affiliation['supplierName'] == 'iTunes' }
+  item['itunes_link'] = itunes['buyLink']
   if itunes.has_key?('price')
     item['price'] = itunes['price']['amount']
     item['currency'] = itunes['price']['currency']
+  end
+end
+
+def get_itunes_ids itunes_link
+  uri = URI.parse(itunes_link)
+  response = Net::HTTP.get_response(uri)
+
+  redirect = response['location']
+  itunes_url = URI.parse(CGI.parse(URI.parse(redirect).query)['url'].first)
+  {
+    'album_id' => itunes_url.path[/id(\d+)/, 1],
+    'track_id' => itunes_url.query[/i=(\d+)/, 1],
+  }
+end
+
+def get_itunes_album_price album_id
+  uri = URI.parse(ITUNES_ALBUM_API_URL % album_id)
+  response = JSON.parse(Net::HTTP.get(uri))
+
+  if response['results'].empty?
+    {}
+  else
+    {
+      'price' => response['results'].first['collectionPrice'],
+      'currency' => response['results'].first['currency'],
+    }
   end
 end
 
@@ -82,11 +112,19 @@ def cache content, file, desc: 'objects'
 end
 
 def with_price items
-  items.select{ |item| item.has_key?('price') }
+  items.select{ |item| with_price?(item) }
 end
 
 def without_price items
-  items.select{ |item| !item.has_key?('price') }
+  items.select{ |item| without_price?(item) }
+end
+
+def with_price? item
+  item.has_key?('price')
+end
+
+def without_price? item
+  !item.has_key?('price')
 end
 
 if File.exists?(CACHE_FILE) && tracks = JSON.parse( IO.read(CACHE_FILE) )
@@ -161,6 +199,10 @@ raise "Expected at least #{tracks.count} tracks but #{consistency_check} were fo
 # And the id can be used in an album lookup
 # https://itunes.apple.com/lookup?id=696628355&entity=album&country=GB
 # Which contains the tracks, though not the specific one we were looking for
+# But then again, sometimes the link will be
+# https://itunes.apple.com/gb/album/id259584141?i=259584887&affId=1773178&ign-mpt=uo%3D5
+# Which contains both the album id and the track id, so we can do
+# https://itunes.apple.com/lookup?id=259584887&entity=song&country=GB
 
 if File.exist?(ENRICHED_ALBUMS_CACHE_FILE)
   albums = JSON.parse( IO.read(ENRICHED_ALBUMS_CACHE_FILE) )
@@ -196,16 +238,38 @@ else
   cache(individual_tracks, ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE)
 end
 
-puts "A price could not be found for the following albums:"
-without_price(albums).each do |album|
-  puts " * #{album['artist']} - #{album['title']}"
+if File.exist?(ITUNES_ENRICHED_ALBUMS_CACHE_FILE)
+  albums = JSON.parse( IO.read(ITUNES_ENRICHED_ALBUMS_CACHE_FILE) )
+  puts "Loaded #{albums.count} albums from #{ITUNES_ENRICHED_ALBUMS_CACHE_FILE}"
+else
+  puts "Fetching album prices from iTunes..."
+  progressbar = ProgressBar.create(total: albums.count)
+  albums.each do |album|
+    if without_price?(album)
+      itunes_ids = get_itunes_ids(album['itunes_link'])
+      album.merge!(get_itunes_album_price(itunes_ids['album_id']))
+      sleep 0.1 # let's not hammer iTunes
+    end
+    progressbar.increment
+  end
+  puts "#{without_price(albums).count} prices still missing"
+  puts
+
+  cache(albums, ITUNES_ENRICHED_ALBUMS_CACHE_FILE)
 end
-puts
 
-puts "A price could not be found for the following tracks:"
-without_price(individual_tracks).each do |track|
-  puts " * #{track['artist']} - #{track['title']} (from #{track['album']})"
+unless without_price(albums).empty?
+  puts "A price could not be found for the following albums:"
+  without_price(albums).each do |album|
+    puts " * #{album['artist']} - #{album['title']}"
+  end
+  puts
 end
-puts
 
-
+unless without_price(individual_tracks).empty?
+  puts "A price could not be found for the following tracks:"
+  without_price(individual_tracks).each do |track|
+    puts " * #{track['artist']} - #{track['title']} (from #{track['album']})"
+  end
+  puts
+end
