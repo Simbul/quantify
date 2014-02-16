@@ -149,7 +149,7 @@ if File.exists?(CACHE_FILE) && tracks = JSON.parse( IO.read(CACHE_FILE) )
   puts "Loaded #{tracks.count} tracks from #{CACHE_FILE}"
 else
   puts "Loading Spotify URIs from #{URIS_FILE}..."
-  track_ids = JSON.parse( IO.read(URIS_FILE) )[0...100]
+  track_ids = JSON.parse( IO.read(URIS_FILE) )
   puts "#{track_ids.count} URIs loaded"
   puts
 
