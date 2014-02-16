@@ -1,5 +1,6 @@
 require 'json'
 require 'net/http'
+require 'open-uri'
 require 'ruby-progressbar'
 
 # https://itunes.apple.com/search?term=middle%20cyclone&entity=album
@@ -7,11 +8,19 @@ require 'ruby-progressbar'
 # Latest track 12 feb 2014
 # Oldest track 23 sep 2013
 
+raise "Your Last.fm API key must be provided in a file called lastfm_api_key" unless File.exist?('lastfm_api_key')
+LASTFM_API_KEY = IO.read('lastfm_api_key').chomp
+
+COUNTRY = 'GB'
+
 SPOTIFY_TRACK_API_URL = 'http://ws.spotify.com/lookup/1/.json?uri=spotify:track:%s'
 SPOTIFY_ALBUM_API_URL = 'http://ws.spotify.com/lookup/1/.json?uri=spotify:album:%s&extras=track'
+LASTFM_ALBUM_API_URL = "http://ws.audioscrobbler.com/2.0/?method=album.getbuylinks&artist=%s&album=%s&country=#{COUNTRY}&api_key=#{LASTFM_API_KEY}&format=json&autocorrect=1"
+
 URIS_FILE = 'tracks.json'
 CACHE_FILE = 'tracks_cache.json'
 ALBUMS_CACHE_FILE = 'albums_cache.json'
+ENRICHED_ALBUMS_CACHE_FILE = 'enriched_albums_cache.json'
 INDIVIDUAL_TRACKS_CACHE_FILE = 'individual_tracks_cache.json'
 
 ALBUM_THRESHOLD = 10
@@ -36,6 +45,19 @@ def get_album id
     'title' => response['album']['name'],
     'track_ids' => response['album']['tracks'].map{ |track| track['href'] }
   }
+end
+
+def enrich_album_price_from_lastfm! album
+  uri_params = [album['artist'], album['title']].map{ |param| URI.encode(param) }
+  uri = URI.parse(LASTFM_ALBUM_API_URL % uri_params)
+
+  response = JSON.parse(Net::HTTP.get(uri))
+
+  itunes = response['affiliations']['downloads']['affiliation'].find{ |affiliation| affiliation['supplierName'] == 'iTunes' }
+  if itunes.has_key?('price')
+    album['price'] = itunes['price']['amount']
+    album['currency'] = itunes['price']['currency']
+  end
 end
 
 def spotify_id_from href
@@ -114,7 +136,28 @@ end
 consistency_check = albums.inject(0){ |sum, album| sum + album['track_ids'].count } + individual_tracks.count
 raise "Expected at least #{tracks.count} tracks but #{consistency_check} were found" unless consistency_check >= tracks.count
 
+# This doesn't return prices in the last.fm response
+# http://ws.audioscrobbler.com/2.0/?method=track.getbuylinks&autocorrect=1&artist=Choeurs%20Ren%C3%A9%20Duclos/Choeurs%20d%27Enfants%20Jean%20Pesneaud/Orchestre%20de%20l%27Op%C3%A9ra%20National%20de%20Paris/Georges%20Pr%C3%AAtre&country=united%20kingdom&api_key=eb5d09df54b0ebf14541ae6da045476b&format=json&track=Carmen%20(1997%20-%20Remaster),%20Act%20I:%20La%20cloche%20a%20sonn%C3%A9....Dans%20l%27air
+# But the iTunes link takes you here
+# https://itunes.apple.com/gb/album/bizet-carmen/id696628355?affId=1773178&ign-mpt=uo%3D4
+# And the id can be used in an album lookup
+# https://itunes.apple.com/lookup?id=696628355&entity=album&country=GB
+# Which contains the tracks, though not the specific one we were looking for
 
+if File.exist?(ENRICHED_ALBUMS_CACHE_FILE)
+  albums = JSON.parse( IO.read(ENRICHED_ALBUMS_CACHE_FILE) )
+  puts "Loaded #{albums.count} albums from #{ENRICHED_ALBUMS_CACHE_FILE}"
+else
+  puts "Fetching album prices from Last.fm..."
+  albums.each do |album|
+    enrich_album_price_from_lastfm!(album)
+    sleep 0.2 # Last.fm TOS (clause 4.4) require not to make "more than 5 requests per originating IP address per second, averaged over a 5 minute period"
+  end
+  puts "#{albums.count{|a| a.has_key?('price')}} prices fetched, #{albums.count{|a| !a.has_key?('price')}} prices not found"
+  puts
+
+  cache(albums, ENRICHED_ALBUMS_CACHE_FILE)
+end
 
 # puts "Fetching track prices from iTunes..."
 # progressbar = ProgressBar.create(total: tracks.count)
