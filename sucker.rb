@@ -50,28 +50,23 @@ def get_album id
 end
 
 def enrich_album_price_from_lastfm! album
-  uri_params = [album['artist'], album['title']].map{ |param| URI.encode(param) }
-  uri = URI.parse(LASTFM_ALBUM_API_URL % uri_params)
-
-  response = JSON.parse(Net::HTTP.get(uri))
-
-  itunes = response['affiliations']['downloads']['affiliation'].find{ |affiliation| affiliation['supplierName'] == 'iTunes' }
-  if itunes.has_key?('price')
-    album['price'] = itunes['price']['amount']
-    album['currency'] = itunes['price']['currency']
-  end
+  enrich_price_from_lastfm!(album, LASTFM_ALBUM_API_URL)
 end
 
 def enrich_track_price_from_lastfm! track
-  uri_params = [track['artist'], track['title']].map{ |param| URI.encode(param) }
-  uri = URI.parse(LASTFM_TRACK_API_URL % uri_params)
+  enrich_price_from_lastfm!(track, LASTFM_TRACK_API_URL)
+end
+
+def enrich_price_from_lastfm! item, api_url
+  uri_params = [item['artist'], item['title']].map{ |param| URI.encode(param) }
+  uri = URI.parse(api_url % uri_params)
 
   response = JSON.parse(Net::HTTP.get(uri))
 
   itunes = response['affiliations']['downloads']['affiliation'].find{ |affiliation| affiliation['supplierName'] == 'iTunes' }
   if itunes.has_key?('price')
-    track['price'] = itunes['price']['amount']
-    track['currency'] = itunes['price']['currency']
+    item['price'] = itunes['price']['amount']
+    item['currency'] = itunes['price']['currency']
   end
 end
 
