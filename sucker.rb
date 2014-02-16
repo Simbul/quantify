@@ -16,12 +16,14 @@ COUNTRY = 'GB'
 SPOTIFY_TRACK_API_URL = 'http://ws.spotify.com/lookup/1/.json?uri=spotify:track:%s'
 SPOTIFY_ALBUM_API_URL = 'http://ws.spotify.com/lookup/1/.json?uri=spotify:album:%s&extras=track'
 LASTFM_ALBUM_API_URL = "http://ws.audioscrobbler.com/2.0/?method=album.getbuylinks&artist=%s&album=%s&country=#{COUNTRY}&api_key=#{LASTFM_API_KEY}&format=json&autocorrect=1"
+LASTFM_TRACK_API_URL = "http://ws.audioscrobbler.com/2.0/?method=track.getbuylinks&artist=%s&track=%s&country=#{COUNTRY}&api_key=#{LASTFM_API_KEY}&format=json&autocorrect=1"
 
 URIS_FILE = 'tracks.json'
 CACHE_FILE = 'tracks_cache.json'
 ALBUMS_CACHE_FILE = 'albums_cache.json'
 ENRICHED_ALBUMS_CACHE_FILE = 'enriched_albums_cache.json'
 INDIVIDUAL_TRACKS_CACHE_FILE = 'individual_tracks_cache.json'
+ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE = 'enriched_individual_tracks_cache.json'
 
 ALBUM_THRESHOLD = 10
 
@@ -57,6 +59,19 @@ def enrich_album_price_from_lastfm! album
   if itunes.has_key?('price')
     album['price'] = itunes['price']['amount']
     album['currency'] = itunes['price']['currency']
+  end
+end
+
+def enrich_track_price_from_lastfm! track
+  uri_params = [track['artist'], track['title']].map{ |param| URI.encode(param) }
+  uri = URI.parse(LASTFM_TRACK_API_URL % uri_params)
+
+  response = JSON.parse(Net::HTTP.get(uri))
+
+  itunes = response['affiliations']['downloads']['affiliation'].find{ |affiliation| affiliation['supplierName'] == 'iTunes' }
+  if itunes.has_key?('price')
+    track['price'] = itunes['price']['amount']
+    track['currency'] = itunes['price']['currency']
   end
 end
 
@@ -158,6 +173,33 @@ else
 
   cache(albums, ENRICHED_ALBUMS_CACHE_FILE)
 end
+
+if File.exist?(ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE)
+  individual_tracks = JSON.parse( IO.read(ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE) )
+  puts "Loaded #{individual_tracks.count} individual tracks from #{ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE}"
+else
+  puts "Fetching track prices from Last.fm..."
+  individual_tracks.each do |track|
+    enrich_track_price_from_lastfm!(track)
+    sleep 0.2 # Last.fm TOS (clause 4.4) require not to make "more than 5 requests per originating IP address per second, averaged over a 5 minute period"
+  end
+  puts "#{individual_tracks.count{|a| a.has_key?('price')}} prices fetched, #{individual_tracks.count{|a| !a.has_key?('price')}} prices not found"
+  puts
+
+  cache(individual_tracks, ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE)
+end
+
+puts "A price could not be found for the following albums:"
+albums.select{|a| !a.has_key?('price')}.each do |album|
+  puts " * #{album['artist']} - #{album['title']}"
+end
+puts
+
+puts "A price could not be found for the following tracks:"
+individual_tracks.select{|a| !a.has_key?('price')}.each do |track|
+  puts " * #{track['artist']} - #{track['title']} (from #{track['album']})"
+end
+puts
 
 # puts "Fetching track prices from iTunes..."
 # progressbar = ProgressBar.create(total: tracks.count)
