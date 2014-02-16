@@ -19,6 +19,7 @@ SPOTIFY_ALBUM_API_URL = 'http://ws.spotify.com/lookup/1/.json?uri=spotify:album:
 LASTFM_ALBUM_API_URL = "http://ws.audioscrobbler.com/2.0/?method=album.getbuylinks&artist=%s&album=%s&country=#{COUNTRY}&api_key=#{LASTFM_API_KEY}&format=json&autocorrect=1"
 LASTFM_TRACK_API_URL = "http://ws.audioscrobbler.com/2.0/?method=track.getbuylinks&artist=%s&track=%s&country=#{COUNTRY}&api_key=#{LASTFM_API_KEY}&format=json&autocorrect=1"
 ITUNES_ALBUM_API_URL = "https://itunes.apple.com/lookup?id=%s&entity=album&country=#{COUNTRY}"
+ITUNES_TRACK_API_URL = "https://itunes.apple.com/lookup?id=%s&entity=song&country=#{COUNTRY}"
 
 URIS_FILE = 'tracks.json'
 CACHE_FILE = 'tracks_cache.json'
@@ -27,6 +28,7 @@ ENRICHED_ALBUMS_CACHE_FILE = 'enriched_albums_cache.json'
 ITUNES_ENRICHED_ALBUMS_CACHE_FILE = 'itunes_enriched_albums_cache.json'
 INDIVIDUAL_TRACKS_CACHE_FILE = 'individual_tracks_cache.json'
 ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE = 'enriched_individual_tracks_cache.json'
+ITUNES_ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE = 'itunes_enriched_individual_tracks_cache.json'
 
 ALBUM_THRESHOLD = 10
 
@@ -95,6 +97,20 @@ def get_itunes_album_price album_id
   else
     {
       'price' => response['results'].first['collectionPrice'],
+      'currency' => response['results'].first['currency'],
+    }
+  end
+end
+
+def get_itunes_track_price track_id
+  uri = URI.parse(ITUNES_TRACK_API_URL % track_id)
+  response = JSON.parse(Net::HTTP.get(uri))
+
+  if response['results'].empty?
+    {}
+  else
+    {
+      'price' => response['results'].first['trackPrice'],
       'currency' => response['results'].first['currency'],
     }
   end
@@ -256,6 +272,28 @@ else
   puts
 
   cache(albums, ITUNES_ENRICHED_ALBUMS_CACHE_FILE)
+end
+
+if File.exist?(ITUNES_ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE)
+  individual_tracks = JSON.parse( IO.read(ITUNES_ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE) )
+  puts "Loaded #{individual_tracks.count} individual tracks from #{ITUNES_ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE}"
+else
+  puts "Fetching track prices from iTunes..."
+  progressbar = ProgressBar.create(total: individual_tracks.count)
+  individual_tracks.each do |track|
+    if without_price?(track)
+      itunes_ids = get_itunes_ids(track['itunes_link'])
+      if itunes_ids['track_id']
+        track.merge!(get_itunes_track_price(itunes_ids['track_id']))
+      end
+      sleep 0.1 # let's not hammer iTunes
+    end
+    progressbar.increment
+  end
+  puts "#{without_price(individual_tracks).count} prices still missing"
+  puts
+
+  cache(individual_tracks, ITUNES_ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE)
 end
 
 unless without_price(albums).empty?
