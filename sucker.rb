@@ -81,6 +81,14 @@ def cache content, file, desc: 'objects'
   puts
 end
 
+def with_price items
+  items.select{ |item| item.has_key?('price') }
+end
+
+def without_price items
+  items.select{ |item| !item.has_key?('price') }
+end
+
 if File.exists?(CACHE_FILE) && tracks = JSON.parse( IO.read(CACHE_FILE) )
   puts "Loaded #{tracks.count} tracks from #{CACHE_FILE}"
 else
@@ -165,7 +173,7 @@ else
     sleep 0.2 # Last.fm TOS (clause 4.4) require not to make "more than 5 requests per originating IP address per second, averaged over a 5 minute period"
     progressbar.increment
   end
-  puts "#{albums.count{|a| a.has_key?('price')}} prices fetched, #{albums.count{|a| !a.has_key?('price')}} prices not found"
+  puts "#{with_price(albums)} prices fetched, #{without_price(albums)} prices not found"
   puts
 
   cache(albums, ENRICHED_ALBUMS_CACHE_FILE)
@@ -182,24 +190,22 @@ else
     sleep 0.2 # Last.fm TOS (clause 4.4) require not to make "more than 5 requests per originating IP address per second, averaged over a 5 minute period"
     progressbar.increment
   end
-  puts "#{individual_tracks.count{|a| a.has_key?('price')}} prices fetched, #{individual_tracks.count{|a| !a.has_key?('price')}} prices not found"
+  puts "#{with_price(individual_tracks)} prices fetched, #{without_price(individual_tracks)} prices not found"
   puts
 
   cache(individual_tracks, ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE)
 end
 
 puts "A price could not be found for the following albums:"
-albums.select{|a| !a.has_key?('price')}.each do |album|
+without_price(albums).each do |album|
   puts " * #{album['artist']} - #{album['title']}"
 end
 puts
 
 puts "A price could not be found for the following tracks:"
-individual_tracks.select{|a| !a.has_key?('price')}.each do |track|
+without_price(individual_tracks).each do |track|
   puts " * #{track['artist']} - #{track['title']} (from #{track['album']})"
 end
 puts
 
-# puts "Fetching track prices from iTunes..."
-# progressbar = ProgressBar.create(total: tracks.count)
 
