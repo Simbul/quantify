@@ -68,11 +68,13 @@ def enrich_price_from_lastfm! item, api_url
 
   response = JSON.parse(Net::HTTP.get(uri))
 
-  itunes = response['affiliations']['downloads']['affiliation'].find{ |affiliation| affiliation['supplierName'] == 'iTunes' }
-  item['itunes_link'] = itunes['buyLink']
-  if itunes.has_key?('price')
-    item['price'] = itunes['price']['amount']
-    item['currency'] = itunes['price']['currency']
+  if response.has_key?('affiliations')
+    itunes = response['affiliations']['downloads']['affiliation'].find{ |affiliation| affiliation['supplierName'] == 'iTunes' }
+    item['itunes_link'] = itunes['buyLink']
+    if itunes.has_key?('price')
+      item['price'] = itunes['price']['amount']
+      item['currency'] = itunes['price']['currency']
+    end
   end
 end
 
@@ -261,7 +263,7 @@ else
   puts "Fetching album prices from iTunes..."
   progressbar = ProgressBar.create(total: albums.count)
   albums.each do |album|
-    if without_price?(album)
+    if without_price?(album) && album['itunes_link']
       itunes_ids = get_itunes_ids(album['itunes_link'])
       album.merge!(get_itunes_album_price(itunes_ids['album_id']))
       sleep 0.1 # let's not hammer iTunes
@@ -281,7 +283,7 @@ else
   puts "Fetching track prices from iTunes..."
   progressbar = ProgressBar.create(total: individual_tracks.count)
   individual_tracks.each do |track|
-    if without_price?(track)
+    if without_price?(track) && track['itunes_link']
       itunes_ids = get_itunes_ids(track['itunes_link'])
       if itunes_ids['track_id']
         track.merge!(get_itunes_track_price(itunes_ids['track_id']))
