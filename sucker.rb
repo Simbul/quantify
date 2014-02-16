@@ -159,9 +159,11 @@ if File.exist?(ENRICHED_ALBUMS_CACHE_FILE)
   puts "Loaded #{albums.count} albums from #{ENRICHED_ALBUMS_CACHE_FILE}"
 else
   puts "Fetching album prices from Last.fm..."
+  progressbar = ProgressBar.create(total: albums.count)
   albums.each do |album|
     enrich_album_price_from_lastfm!(album)
     sleep 0.2 # Last.fm TOS (clause 4.4) require not to make "more than 5 requests per originating IP address per second, averaged over a 5 minute period"
+    progressbar.increment
   end
   puts "#{albums.count{|a| a.has_key?('price')}} prices fetched, #{albums.count{|a| !a.has_key?('price')}} prices not found"
   puts
@@ -174,9 +176,11 @@ if File.exist?(ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE)
   puts "Loaded #{individual_tracks.count} individual tracks from #{ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE}"
 else
   puts "Fetching track prices from Last.fm..."
+  progressbar = ProgressBar.create(total: individual_tracks.count)
   individual_tracks.each do |track|
     enrich_track_price_from_lastfm!(track)
     sleep 0.2 # Last.fm TOS (clause 4.4) require not to make "more than 5 requests per originating IP address per second, averaged over a 5 minute period"
+    progressbar.increment
   end
   puts "#{individual_tracks.count{|a| a.has_key?('price')}} prices fetched, #{individual_tracks.count{|a| !a.has_key?('price')}} prices not found"
   puts
