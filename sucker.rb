@@ -4,6 +4,8 @@ require 'open-uri'
 require 'cgi'
 require 'ruby-progressbar'
 
+require_relative 'lib/spotifetch'
+
 # Latest track 12 feb 2014
 # Oldest track 23 sep 2013
 
@@ -12,45 +14,15 @@ LASTFM_API_KEY = IO.read('lastfm_api_key').chomp
 
 COUNTRY = 'GB'
 
-SPOTIFY_TRACK_API_URL = 'http://ws.spotify.com/lookup/1/.json?uri=spotify:track:%s'
-SPOTIFY_ALBUM_API_URL = 'http://ws.spotify.com/lookup/1/.json?uri=spotify:album:%s&extras=track'
 LASTFM_ALBUM_API_URL = "http://ws.audioscrobbler.com/2.0/?method=album.getbuylinks&artist=%s&album=%s&country=#{COUNTRY}&api_key=#{LASTFM_API_KEY}&format=json&autocorrect=1"
 LASTFM_TRACK_API_URL = "http://ws.audioscrobbler.com/2.0/?method=track.getbuylinks&artist=%s&track=%s&country=#{COUNTRY}&api_key=#{LASTFM_API_KEY}&format=json&autocorrect=1"
 ITUNES_ALBUM_API_URL = "https://itunes.apple.com/lookup?id=%s&entity=album&country=#{COUNTRY}"
 ITUNES_TRACK_API_URL = "https://itunes.apple.com/lookup?id=%s&entity=song&country=#{COUNTRY}"
 
-URIS_FILE = 'tracks.json'
-CACHE_FILE = 'tracks_cache.json'
-ALBUMS_CACHE_FILE = 'albums_cache.json'
 ENRICHED_ALBUMS_CACHE_FILE = 'enriched_albums_cache.json'
 ITUNES_ENRICHED_ALBUMS_CACHE_FILE = 'itunes_enriched_albums_cache.json'
-INDIVIDUAL_TRACKS_CACHE_FILE = 'individual_tracks_cache.json'
 ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE = 'enriched_individual_tracks_cache.json'
 ITUNES_ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE = 'itunes_enriched_individual_tracks_cache.json'
-
-ALBUM_THRESHOLD = 10
-
-def get_track id
-  uri = URI.parse(SPOTIFY_TRACK_API_URL % id)
-  response = JSON.parse(Net::HTTP.get(uri))
-  {
-    'track_id' => response['track']['href'],
-    'artist' => response['track']['artists'].first['name'],
-    'title' => response['track']['name'],
-    'album' => response['track']['album']['name'],
-    'album_href' => response['track']['album']['href'],
-  }
-end
-
-def get_album id
-  uri = URI.parse(SPOTIFY_ALBUM_API_URL % id)
-  response = JSON.parse(Net::HTTP.get(uri))
-  {
-    'artist' => response['album']['artist'],
-    'title' => response['album']['name'],
-    'track_ids' => response['album']['tracks'].map{ |track| track['href'] }
-  }
-end
 
 def enrich_album_price_from_lastfm! album
   enrich_price_from_lastfm!(album, LASTFM_ALBUM_API_URL)
@@ -116,10 +88,6 @@ def get_itunes_track_price track_id
   end
 end
 
-def spotify_id_from href
-  href.split(':').last
-end
-
 def cache content, file, desc: 'objects'
   puts "Caching #{desc}..."
   File.open(file, 'w'){ |f| f.write(content.to_json) }
@@ -143,67 +111,8 @@ def without_price? item
   !item.has_key?('price')
 end
 
-if File.exists?(CACHE_FILE) && tracks = JSON.parse( IO.read(CACHE_FILE) )
-  puts "Loaded #{tracks.count} tracks from #{CACHE_FILE}"
-else
-  puts "Loading Spotify URIs from #{URIS_FILE}..."
-  track_ids = JSON.parse( IO.read(URIS_FILE) )
-  puts "#{track_ids.count} URIs loaded"
-  puts
-
-  puts "Removing duplicate URIs..."
-  track_ids.uniq!
-  puts "#{track_ids.count} unique URIs remaining"
-  puts
-
-  puts "Fetching data for URIs..."
-  progressbar = ProgressBar.create(total: track_ids.count)
-  tracks = []
-
-  track_ids.each do |id|
-    tracks << get_track(id)
-    sleep 0.2 if tracks.count % 10 == 0 # Let's not hammer the API
-    progressbar.increment
-  end
-  puts "#{tracks.count} tracks fetched"
-  puts
-
-  cache(tracks, CACHE_FILE)
-end
-
-if File.exists?(ALBUMS_CACHE_FILE) && File.exists?(INDIVIDUAL_TRACKS_CACHE_FILE)
-  albums = JSON.parse( IO.read(ALBUMS_CACHE_FILE) )
-  individual_tracks = JSON.parse( IO.read(INDIVIDUAL_TRACKS_CACHE_FILE) )
-  puts "Loaded #{albums.count} albums from #{ALBUMS_CACHE_FILE}"
-  puts "Loaded #{individual_tracks.count} individual tracks from #{INDIVIDUAL_TRACKS_CACHE_FILE}"
-else
-  puts "Grouping tracks by album..."
-  grouped_tracks = tracks.group_by{ |track| track['album_href'] }
-  puts "#{grouped_tracks.count} albums detected"
-  puts
-
-  puts "Sorting tracks between albums and individual tracks..."
-  albums = []
-  individual_tracks = []
-  progressbar = ProgressBar.create(total: grouped_tracks.count)
-  grouped_tracks.each do |album_href, tracks|
-    album_id = spotify_id_from(album_href)
-    album = get_album(album_id)
-    unmatched_tracks = album['track_ids'] - tracks.map{ |track| track['track_id'] }
-    if unmatched_tracks.empty? || album['track_ids'].count - unmatched_tracks.count >= ALBUM_THRESHOLD
-      albums << album
-    else
-      individual_tracks.concat(tracks)
-    end
-    sleep 0.2 if (albums.count + individual_tracks.count) % 10 == 0 # Let's not hammer the API
-    progressbar.increment
-  end
-  puts "Found #{albums.count} albums and #{individual_tracks.count} tracks"
-  puts
-
-  cache(albums, ALBUMS_CACHE_FILE)
-  cache(individual_tracks, INDIVIDUAL_TRACKS_CACHE_FILE)
-end
+tracks = Spotifetch.fetch
+albums, individual_tracks = Spotifetch.group(tracks)
 
 consistency_check = albums.inject(0){ |sum, album| sum + album['track_ids'].count } + individual_tracks.count
 raise "Expected at least #{tracks.count} tracks but #{consistency_check} were found" unless consistency_check >= tracks.count
