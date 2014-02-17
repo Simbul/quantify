@@ -7,7 +7,7 @@ module Spotifetch
   TRACK_API_URL = 'http://ws.spotify.com/lookup/1/.json?uri=spotify:track:%s'
   ALBUM_API_URL = 'http://ws.spotify.com/lookup/1/.json?uri=spotify:album:%s&extras=track'
 
-  URIS_FILE = 'tracks.json'
+  URIS_FILE = 'spotify_track_uris'
   CACHE_FILE = 'tracks_cache.json'
   ALBUMS_CACHE_FILE = 'albums_cache.json'
   INDIVIDUAL_TRACKS_CACHE_FILE = 'individual_tracks_cache.json'
@@ -19,7 +19,7 @@ module Spotifetch
       puts "Loaded #{tracks.count} tracks from #{CACHE_FILE}"
     else
       puts "Loading Spotify URIs from #{uris_file}..."
-      track_ids = JSON.parse( IO.read(uris_file) ).sample(5)
+      track_ids = track_ids_from(uris_file)
       puts "#{track_ids.count} URIs loaded"
       puts
 
@@ -82,6 +82,12 @@ module Spotifetch
     end
 
     [albums, individual_tracks]
+  end
+
+  def self.track_ids_from uris_file
+    IO.read(uris_file)
+      .lines
+      .map{ |line| line[/spotify:track:([0-9A-Za-z]+)/, 1] }.compact
   end
 
   def self.get_track id
