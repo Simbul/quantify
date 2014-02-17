@@ -4,8 +4,6 @@ require 'open-uri'
 require 'cgi'
 require 'ruby-progressbar'
 
-# https://itunes.apple.com/search?term=middle%20cyclone&entity=album
-
 # Latest track 12 feb 2014
 # Oldest track 23 sep 2013
 
@@ -239,23 +237,6 @@ else
   cache(albums, ENRICHED_ALBUMS_CACHE_FILE)
 end
 
-if File.exist?(ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE)
-  individual_tracks = JSON.parse( IO.read(ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE) )
-  puts "Loaded #{individual_tracks.count} individual tracks from #{ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE}"
-else
-  puts "Fetching track prices from Last.fm..."
-  progressbar = ProgressBar.create(total: individual_tracks.count)
-  individual_tracks.each do |track|
-    enrich_track_price_from_lastfm!(track)
-    sleep 0.2 # Last.fm TOS (clause 4.4) require not to make "more than 5 requests per originating IP address per second, averaged over a 5 minute period"
-    progressbar.increment
-  end
-  puts "#{with_price(individual_tracks).count} prices fetched, #{without_price(individual_tracks).count} prices not found"
-  puts
-
-  cache(individual_tracks, ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE)
-end
-
 if File.exist?(ITUNES_ENRICHED_ALBUMS_CACHE_FILE)
   albums = JSON.parse( IO.read(ITUNES_ENRICHED_ALBUMS_CACHE_FILE) )
   puts "Loaded #{albums.count} albums from #{ITUNES_ENRICHED_ALBUMS_CACHE_FILE}"
@@ -274,6 +255,26 @@ else
   puts
 
   cache(albums, ITUNES_ENRICHED_ALBUMS_CACHE_FILE)
+end
+
+# Albums with a price of -1 cannot be bought on iTunes (only individual tracks available)
+# puts "Splitting albums that cannot be bought..."
+
+if File.exist?(ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE)
+  individual_tracks = JSON.parse( IO.read(ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE) )
+  puts "Loaded #{individual_tracks.count} individual tracks from #{ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE}"
+else
+  puts "Fetching track prices from Last.fm..."
+  progressbar = ProgressBar.create(total: individual_tracks.count)
+  individual_tracks.each do |track|
+    enrich_track_price_from_lastfm!(track)
+    sleep 0.2 # Last.fm TOS (clause 4.4) require not to make "more than 5 requests per originating IP address per second, averaged over a 5 minute period"
+    progressbar.increment
+  end
+  puts "#{with_price(individual_tracks).count} prices fetched, #{without_price(individual_tracks).count} prices not found"
+  puts
+
+  cache(individual_tracks, ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE)
 end
 
 if File.exist?(ITUNES_ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE)
