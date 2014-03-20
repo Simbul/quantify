@@ -85,9 +85,14 @@ module Spotifetch
   end
 
   def self.track_ids_from uris_file
+    regex = %r{
+      track          # prefix: we are looking for a track
+      (?:/|:)        # the separator is '/' for HTTP links and ':' for Spotify URIs
+      ([0-9A-Za-z]+) # the id itself, e.g. '6WbPC4l07YdaaBtfVCs0vj'
+    }x
     IO.read(uris_file)
       .lines
-      .map{ |line| line[/spotify:track:([0-9A-Za-z]+)/, 1] }.compact
+      .map{ |line| line[regex, 1] }.compact
   end
 
   def self.get_track id
