@@ -54,19 +54,3 @@ albums, individual_tracks = Spotifetch.group(tracks)
 # puts "Splitting albums that cannot be bought..."
 
 
-
-unless without_price(albums).empty?
-  puts "A price could not be found for the following albums:"
-  without_price(albums).each do |album|
-    puts " * #{album['artist']} - #{album['title']}"
-  end
-  puts
-end
-
-unless without_price(individual_tracks).empty?
-  puts "A price could not be found for the following tracks:"
-  without_price(individual_tracks).each do |track|
-    puts " * #{track['artist']} - #{track['title']} (from #{track['album']})"
-  end
-  puts
-end

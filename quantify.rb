@@ -3,6 +3,7 @@
 require_relative 'lib/spotifetch'
 require_relative 'lib/lastfetch'
 require_relative 'lib/itunesfetch'
+require_relative 'lib/utils'
 
 tracks = Spotifetch.fetch
 albums, individual_tracks = Spotifetch.group(tracks)
@@ -17,3 +18,19 @@ itunes_albums = Itunesfetch.fetch_albums(enriched_albums)
 enriched_tracks = Lastfetch.fetch_tracks(individual_tracks)
 
 itunes_tracks = Itunesfetch.fetch_tracks(enriched_tracks)
+
+unless Utils.without_price(itunes_albums).empty?
+  puts "A price could not be found for the following albums:"
+  Utils.without_price(itunes_albums).each do |album|
+    puts " * #{album['artist']} - #{album['title']}"
+  end
+  puts
+end
+
+unless Utils.without_price(itunes_tracks).empty?
+  puts "A price could not be found for the following tracks:"
+  Utils.without_price(itunes_tracks).each do |track|
+    puts " * #{track['artist']} - #{track['title']} (from #{track['album']})"
+  end
+  puts
+end
