@@ -2,9 +2,11 @@ require 'json'
 require 'net/http'
 require 'ruby-progressbar'
 
+require_relative 'utils'
+
 module Spotifetch
 
-  class HTTPResponseError < RuntimeError; end
+  extend Utils
 
   TRACK_API_URL = 'http://ws.spotify.com/lookup/1/.json?uri=spotify:track:%s'
   ALBUM_API_URL = 'http://ws.spotify.com/lookup/1/.json?uri=spotify:album:%s&extras=track'
@@ -97,21 +99,6 @@ module Spotifetch
       .map{ |line| line[regex, 1] }.compact
   end
 
-  def self.get uri_string
-    uri = URI.parse(uri_string)
-
-    begin
-      response = Net::HTTP.get_response(uri)
-      raise HTTPResponseError, "HTTP call response is #{response.code}: #{response.msg}" unless response.code == '200'
-      json = JSON.parse(response.body)
-    rescue Exception => e
-      log "Error requesting #{uri}"
-      raise
-    end
-
-    json
-  end
-
   def self.get_track id
     response = get(TRACK_API_URL % id)
     {
@@ -134,17 +121,6 @@ module Spotifetch
 
   def self.spotify_id_from href
     href.split(':').last
-  end
-
-  def self.cache content, file, desc: 'objects'
-    log "Caching #{desc}..."
-    File.open(file, 'w'){ |f| f.write(content.to_json) }
-    log "Cached #{desc} in #{file}"
-    log
-  end
-
-  def self.log msg
-    puts "[#{self.name}] #{msg}"
   end
 
 end
