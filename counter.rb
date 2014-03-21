@@ -1,3 +1,5 @@
+#!/usr/bin/env ruby
+
 require 'json'
 
 ITUNES_ENRICHED_ALBUMS_CACHE_FILE = 'itunes_enriched_albums_cache.json'
