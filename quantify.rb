@@ -6,6 +6,9 @@ require_relative 'lib/itunes'
 require_relative 'lib/utils'
 
 tracks = Spotify.fetch
+
+tracks = Itunes.exclude_library_tracks(tracks)
+
 albums, individual_tracks = Spotify.group(tracks)
 
 Utils.consistency_check(albums, tracks, individual_tracks)

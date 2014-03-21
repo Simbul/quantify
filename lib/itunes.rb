@@ -11,10 +11,12 @@ module Itunes
   include Utils
 
   COUNTRY = 'GB'
+  LIBRARY_FILE = 'Library.xml'
 
   ITUNES_ALBUM_API_URL = "https://itunes.apple.com/lookup?id=%s&entity=album&country=#{COUNTRY}"
   ITUNES_TRACK_API_URL = "https://itunes.apple.com/lookup?id=%s&entity=song&country=#{COUNTRY}"
 
+  TRACKS_AFTER_EXCLUSION_CACHE_FILE = 'tracks_after_exclusion_cache.json'
   ITUNES_ENRICHED_ALBUMS_CACHE_FILE = 'itunes_enriched_albums_cache.json'
   ITUNES_ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE = 'itunes_enriched_individual_tracks_cache.json'
 
@@ -68,6 +70,33 @@ module Itunes
     individual_tracks
   end
 
+  def self.exclude_library_tracks tracks
+    if File.exist?(TRACKS_AFTER_EXCLUSION_CACHE_FILE) && tracks_after_exclusion = JSON.parse( IO.read(TRACKS_AFTER_EXCLUSION_CACHE_FILE) )
+      log "Loaded #{tracks_after_exclusion.count} tracks from #{TRACKS_AFTER_EXCLUSION_CACHE_FILE}"
+    else
+      if File.exist?(LIBRARY_FILE)
+        log "Excluding tracks already in iTunes library '#{LIBRARY_FILE}'..."
+        library_tracks = Itunes.library_tracks(LIBRARY_FILE)
+      else
+        log "No library file in '#{LIBRARY_FILE}': no tracks will be excluded"
+        library_tracks = []
+      end
+
+      tracks_after_exclusion = tracks.reject{ |track|
+        library_tracks.find{ |library_track|
+          library_track['artist'].casecmp(track['artist']) == 0 && library_track['title'].casecmp(track['title']) == 0
+        }
+      }
+
+      log "#{tracks_after_exclusion.count} tracks remaining after exclusion"
+      log
+
+      cache(tracks_after_exclusion, TRACKS_AFTER_EXCLUSION_CACHE_FILE)
+    end
+
+    tracks_after_exclusion
+  end
+
   def self.library_tracks library_file
     plist = Plist::parse_xml(library_file)
 
@@ -80,11 +109,6 @@ module Itunes
           'album' => track['Album'] || '',
         }
       }
-  end
-
-  def self.library_albums library_file
-    tracks = library_tracks(library_file)
-    tracks.group_by{ |track| track['album'] }
   end
 
   def self.get_itunes_ids itunes_link
