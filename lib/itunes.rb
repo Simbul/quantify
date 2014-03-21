@@ -2,6 +2,7 @@ require 'json'
 require 'net/http'
 require 'ruby-progressbar'
 require 'cgi'
+require 'plist'
 
 require_relative 'utils'
 
@@ -65,6 +66,25 @@ module Itunes
     end
 
     individual_tracks
+  end
+
+  def self.library_tracks library_file
+    plist = Plist::parse_xml(library_file)
+
+    plist['Tracks'].values
+      .select{ |track| !track['Podcast'] }
+      .map{ |track|
+        {
+          'artist' => track['Artist'] || '',
+          'title' => track['Name'] || '',
+          'album' => track['Album'] || '',
+        }
+      }
+  end
+
+  def self.library_albums library_file
+    tracks = library_tracks(library_file)
+    tracks.group_by{ |track| track['album'] }
   end
 
   def self.get_itunes_ids itunes_link
