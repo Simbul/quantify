@@ -4,7 +4,7 @@ require 'ruby-progressbar'
 
 require_relative 'utils'
 
-module Spotifetch
+module Spotify
 
   include Utils
 

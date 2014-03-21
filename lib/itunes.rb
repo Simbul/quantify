@@ -5,7 +5,7 @@ require 'cgi'
 
 require_relative 'utils'
 
-module Itunesfetch
+module Itunes
 
   include Utils
 

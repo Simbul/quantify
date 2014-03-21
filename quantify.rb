@@ -1,25 +1,25 @@
 #!/usr/bin/env ruby
 
-require_relative 'lib/spotifetch'
-require_relative 'lib/lastfetch'
-require_relative 'lib/itunesfetch'
+require_relative 'lib/spotify'
+require_relative 'lib/lastfm'
+require_relative 'lib/itunes'
 require_relative 'lib/utils'
 
-tracks = Spotifetch.fetch
-albums, individual_tracks = Spotifetch.group(tracks)
+tracks = Spotify.fetch
+albums, individual_tracks = Spotify.group(tracks)
 
 Utils.consistency_check(albums, tracks, individual_tracks)
 
-enriched_albums = Lastfetch.fetch_albums(albums)
+enriched_albums = Lastfm.fetch_albums(albums)
 
-itunes_albums = Itunesfetch.fetch_albums(enriched_albums)
+itunes_albums = Itunes.fetch_albums(enriched_albums)
 
 # Albums with a price of -1 cannot be bought on iTunes (only individual tracks available)
 # TODO: split albums into individual tracks
 
-enriched_tracks = Lastfetch.fetch_tracks(individual_tracks)
+enriched_tracks = Lastfm.fetch_tracks(individual_tracks)
 
-itunes_tracks = Itunesfetch.fetch_tracks(enriched_tracks)
+itunes_tracks = Itunes.fetch_tracks(enriched_tracks)
 
 unless Utils.without_price(itunes_albums).empty?
   puts "A price could not be found for the following albums:"
