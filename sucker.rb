@@ -9,13 +9,10 @@ require_relative 'lib/spotifetch'
 # Latest track 12 feb 2014
 # Oldest track 23 sep 2013
 
-raise "Your Last.fm API key must be provided in a file called lastfm_api_key" unless File.exist?('lastfm_api_key')
-LASTFM_API_KEY = IO.read('lastfm_api_key').chomp
+
 
 COUNTRY = 'GB'
 
-LASTFM_ALBUM_API_URL = "http://ws.audioscrobbler.com/2.0/?method=album.getbuylinks&artist=%s&album=%s&country=#{COUNTRY}&api_key=#{LASTFM_API_KEY}&format=json&autocorrect=1"
-LASTFM_TRACK_API_URL = "http://ws.audioscrobbler.com/2.0/?method=track.getbuylinks&artist=%s&track=%s&country=#{COUNTRY}&api_key=#{LASTFM_API_KEY}&format=json&autocorrect=1"
 ITUNES_ALBUM_API_URL = "https://itunes.apple.com/lookup?id=%s&entity=album&country=#{COUNTRY}"
 ITUNES_TRACK_API_URL = "https://itunes.apple.com/lookup?id=%s&entity=song&country=#{COUNTRY}"
 
@@ -24,28 +21,9 @@ ITUNES_ENRICHED_ALBUMS_CACHE_FILE = 'itunes_enriched_albums_cache.json'
 ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE = 'enriched_individual_tracks_cache.json'
 ITUNES_ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE = 'itunes_enriched_individual_tracks_cache.json'
 
-def enrich_album_price_from_lastfm! album
-  enrich_price_from_lastfm!(album, LASTFM_ALBUM_API_URL)
-end
 
 def enrich_track_price_from_lastfm! track
   enrich_price_from_lastfm!(track, LASTFM_TRACK_API_URL)
-end
-
-def enrich_price_from_lastfm! item, api_url
-  uri_params = [item['artist'], item['title']].map{ |param| URI.encode(param) }
-  uri = URI.parse(api_url % uri_params)
-
-  response = JSON.parse(Net::HTTP.get(uri))
-
-  if response.has_key?('affiliations')
-    itunes = response['affiliations']['downloads']['affiliation'].find{ |affiliation| affiliation['supplierName'] == 'iTunes' }
-    item['itunes_link'] = itunes['buyLink']
-    if itunes.has_key?('price')
-      item['price'] = itunes['price']['amount']
-      item['currency'] = itunes['price']['currency']
-    end
-  end
 end
 
 def get_itunes_ids itunes_link
@@ -128,23 +106,6 @@ raise "Expected at least #{tracks.count} tracks but #{consistency_check} were fo
 # https://itunes.apple.com/gb/album/id259584141?i=259584887&affId=1773178&ign-mpt=uo%3D5
 # Which contains both the album id and the track id, so we can do
 # https://itunes.apple.com/lookup?id=259584887&entity=song&country=GB
-
-if File.exist?(ENRICHED_ALBUMS_CACHE_FILE)
-  albums = JSON.parse( IO.read(ENRICHED_ALBUMS_CACHE_FILE) )
-  puts "Loaded #{albums.count} albums from #{ENRICHED_ALBUMS_CACHE_FILE}"
-else
-  puts "Fetching album prices from Last.fm..."
-  progressbar = ProgressBar.create(total: albums.count)
-  albums.each do |album|
-    enrich_album_price_from_lastfm!(album)
-    sleep 0.2 # Last.fm TOS (clause 4.4) require not to make "more than 5 requests per originating IP address per second, averaged over a 5 minute period"
-    progressbar.increment
-  end
-  puts "#{with_price(albums).count} prices fetched, #{without_price(albums).count} prices not found"
-  puts
-
-  cache(albums, ENRICHED_ALBUMS_CACHE_FILE)
-end
 
 if File.exist?(ITUNES_ENRICHED_ALBUMS_CACHE_FILE)
   albums = JSON.parse( IO.read(ITUNES_ENRICHED_ALBUMS_CACHE_FILE) )
