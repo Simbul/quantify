@@ -24,7 +24,7 @@ module Lastfetch
       log "Loaded #{albums.count} albums from #{ENRICHED_ALBUMS_CACHE_FILE}"
     else
       log "Fetching album prices from Last.fm..."
-      progressbar = ProgressBar.create(total: albums.count)
+      progressbar = progress_bar_for(albums)
       albums.each do |album|
         enrich_album_price_from_lastfm!(album)
         sleep 0.2 # Last.fm TOS (clause 4.4) require not to make "more than 5 requests per originating IP address per second, averaged over a 5 minute period"
@@ -44,7 +44,7 @@ module Lastfetch
       log "Loaded #{individual_tracks.count} individual tracks from #{ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE}"
     else
       log "Fetching track prices from Last.fm..."
-      progressbar = ProgressBar.create(total: individual_tracks.count)
+      progressbar = progress_bar_for(individual_tracks)
       individual_tracks.each do |track|
         enrich_track_price_from_lastfm!(track)
         sleep 0.2 # Last.fm TOS (clause 4.4) require not to make "more than 5 requests per originating IP address per second, averaged over a 5 minute period"

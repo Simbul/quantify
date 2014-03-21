@@ -23,7 +23,7 @@ module Itunesfetch
       log "Loaded #{albums.count} albums from #{ITUNES_ENRICHED_ALBUMS_CACHE_FILE}"
     else
       log "Fetching album prices from iTunes..."
-      progressbar = ProgressBar.create(total: albums.count)
+      progressbar = progress_bar_for(albums)
       albums.each do |album|
         if without_price?(album) && album['itunes_link']
           itunes_ids = get_itunes_ids(album['itunes_link'])
@@ -47,7 +47,7 @@ module Itunesfetch
       log "Loaded #{individual_tracks.count} individual tracks from #{ITUNES_ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE}"
     else
       log "Fetching track prices from iTunes..."
-      progressbar = ProgressBar.create(total: individual_tracks.count)
+      progressbar = progress_bar_for(individual_tracks)
       individual_tracks.each do |track|
         if without_price?(track) && track['itunes_link']
           itunes_ids = get_itunes_ids(track['itunes_link'])

@@ -49,6 +49,10 @@ module Utils
       consistency_check = albums.inject(0){ |sum, album| sum + album['track_ids'].count } + individual_tracks.count
       raise "Expected at least #{tracks.count} tracks but #{consistency_check} were found" unless consistency_check >= tracks.count
     end
+
+    def progress_bar_for items
+      ProgressBar.create(total: items.count, format: '%t: |%B| %c/%C')
+    end
   end
 
   extend ClassMethods

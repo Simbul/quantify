@@ -33,7 +33,7 @@ module Spotifetch
       log
 
       log "Fetching data for URIs..."
-      progressbar = ProgressBar.create(total: track_ids.count)
+      progressbar = progress_bar_for(track_ids)
       tracks = []
 
       track_ids.each do |id|
@@ -65,7 +65,7 @@ module Spotifetch
       log "Sorting tracks between albums and individual tracks..."
       albums = []
       individual_tracks = []
-      progressbar = ProgressBar.create(total: grouped_tracks.count)
+      progressbar = progress_bar_for(grouped_tracks)
       grouped_tracks.each do |album_href, tracks|
         album_id = spotify_id_from(album_href)
         album = get_album(album_id)
