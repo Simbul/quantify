@@ -17,6 +17,7 @@ module Lastfetch
   LASTFM_TRACK_API_URL = "http://ws.audioscrobbler.com/2.0/?method=track.getbuylinks&artist=%s&track=%s&country=#{COUNTRY}&api_key=#{LASTFM_API_KEY}&format=json&autocorrect=1"
 
   ENRICHED_ALBUMS_CACHE_FILE = 'enriched_albums_cache.json'
+  ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE = 'enriched_individual_tracks_cache.json'
 
   def self.fetch_albums albums
     if File.exist?(ENRICHED_ALBUMS_CACHE_FILE) && albums = JSON.parse( IO.read(ENRICHED_ALBUMS_CACHE_FILE) )
@@ -38,8 +39,32 @@ module Lastfetch
     albums
   end
 
+  def self.fetch_tracks individual_tracks
+    if File.exist?(ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE) && individual_tracks = JSON.parse( IO.read(ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE) )
+      log "Loaded #{individual_tracks.count} individual tracks from #{ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE}"
+    else
+      log "Fetching track prices from Last.fm..."
+      progressbar = ProgressBar.create(total: individual_tracks.count)
+      individual_tracks.each do |track|
+        enrich_track_price_from_lastfm!(track)
+        sleep 0.2 # Last.fm TOS (clause 4.4) require not to make "more than 5 requests per originating IP address per second, averaged over a 5 minute period"
+        progressbar.increment
+      end
+      log "#{with_price(individual_tracks).count} prices fetched, #{without_price(individual_tracks).count} prices not found"
+      log
+
+      cache(individual_tracks, ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE)
+    end
+
+    individual_tracks
+  end
+
   def self.enrich_album_price_from_lastfm! album
     enrich_price_from_lastfm!(album, LASTFM_ALBUM_API_URL)
+  end
+
+  def self.enrich_track_price_from_lastfm! track
+    enrich_price_from_lastfm!(track, LASTFM_TRACK_API_URL)
   end
 
   def self.enrich_price_from_lastfm! item, api_url
