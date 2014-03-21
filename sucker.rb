@@ -92,9 +92,6 @@ end
 tracks = Spotifetch.fetch
 albums, individual_tracks = Spotifetch.group(tracks)
 
-consistency_check = albums.inject(0){ |sum, album| sum + album['track_ids'].count } + individual_tracks.count
-raise "Expected at least #{tracks.count} tracks but #{consistency_check} were found" unless consistency_check >= tracks.count
-
 # This doesn't return prices in the last.fm response
 # http://ws.audioscrobbler.com/2.0/?method=track.getbuylinks&autocorrect=1&artist=Choeurs%20Ren%C3%A9%20Duclos/Choeurs%20d%27Enfants%20Jean%20Pesneaud/Orchestre%20de%20l%27Op%C3%A9ra%20National%20de%20Paris/Georges%20Pr%C3%AAtre&country=united%20kingdom&api_key=eb5d09df54b0ebf14541ae6da045476b&format=json&track=Carmen%20(1997%20-%20Remaster),%20Act%20I:%20La%20cloche%20a%20sonn%C3%A9....Dans%20l%27air
 # But the iTunes link takes you here
