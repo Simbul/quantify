@@ -18,19 +18,19 @@ module Spotifetch
 
   def self.fetch uris_file=URIS_FILE
     if File.exists?(CACHE_FILE) && tracks = JSON.parse( IO.read(CACHE_FILE) )
-      puts "Loaded #{tracks.count} tracks from #{CACHE_FILE}"
+      log "Loaded #{tracks.count} tracks from #{CACHE_FILE}"
     else
-      puts "Loading Spotify URIs from #{uris_file}..."
+      log "Loading Spotify URIs from #{uris_file}..."
       track_ids = track_ids_from(uris_file)
-      puts "#{track_ids.count} URIs loaded"
-      puts
+      log "#{track_ids.count} URIs loaded"
+      log
 
-      puts "Removing duplicate URIs..."
+      log "Removing duplicate URIs..."
       track_ids.uniq!
-      puts "#{track_ids.count} unique URIs remaining"
-      puts
+      log "#{track_ids.count} unique URIs remaining"
+      log
 
-      puts "Fetching data for URIs..."
+      log "Fetching data for URIs..."
       progressbar = ProgressBar.create(total: track_ids.count)
       tracks = []
 
@@ -39,8 +39,8 @@ module Spotifetch
         sleep 0.2 if tracks.count % 10 == 0 # Let's not hammer the API
         progressbar.increment
       end
-      puts "#{tracks.count} tracks fetched"
-      puts
+      log "#{tracks.count} tracks fetched"
+      log
 
       cache(tracks, CACHE_FILE)
     end
@@ -52,15 +52,15 @@ module Spotifetch
     if File.exists?(ALBUMS_CACHE_FILE) && File.exists?(INDIVIDUAL_TRACKS_CACHE_FILE)
       albums = JSON.parse( IO.read(ALBUMS_CACHE_FILE) )
       individual_tracks = JSON.parse( IO.read(INDIVIDUAL_TRACKS_CACHE_FILE) )
-      puts "Loaded #{albums.count} albums from #{ALBUMS_CACHE_FILE}"
-      puts "Loaded #{individual_tracks.count} individual tracks from #{INDIVIDUAL_TRACKS_CACHE_FILE}"
+      log "Loaded #{albums.count} albums from #{ALBUMS_CACHE_FILE}"
+      log "Loaded #{individual_tracks.count} individual tracks from #{INDIVIDUAL_TRACKS_CACHE_FILE}"
     else
-      puts "Grouping tracks by album..."
+      log "Grouping tracks by album..."
       grouped_tracks = tracks.group_by{ |track| track['album_href'] }
-      puts "#{grouped_tracks.count} albums detected"
-      puts
+      log "#{grouped_tracks.count} albums detected"
+      log
 
-      puts "Sorting tracks between albums and individual tracks..."
+      log "Sorting tracks between albums and individual tracks..."
       albums = []
       individual_tracks = []
       progressbar = ProgressBar.create(total: grouped_tracks.count)
@@ -76,8 +76,8 @@ module Spotifetch
         sleep 0.2 if (albums.count + individual_tracks.count) % 10 == 0 # Let's not hammer the API
         progressbar.increment
       end
-      puts "Found #{albums.count} albums and #{individual_tracks.count} tracks"
-      puts
+      log "Found #{albums.count} albums and #{individual_tracks.count} tracks"
+      log
 
       cache(albums, ALBUMS_CACHE_FILE)
       cache(individual_tracks, INDIVIDUAL_TRACKS_CACHE_FILE)
@@ -105,7 +105,7 @@ module Spotifetch
       raise HTTPResponseError, "HTTP call response is #{response.code}: #{response.msg}" unless response.code == '200'
       json = JSON.parse(response.body)
     rescue Exception => e
-      puts "Error requesting #{uri}"
+      log "Error requesting #{uri}"
       raise
     end
 
@@ -137,10 +137,14 @@ module Spotifetch
   end
 
   def self.cache content, file, desc: 'objects'
-    puts "Caching #{desc}..."
+    log "Caching #{desc}..."
     File.open(file, 'w'){ |f| f.write(content.to_json) }
-    puts "Cached #{desc} in #{file}"
-    puts
+    log "Cached #{desc} in #{file}"
+    log
+  end
+
+  def self.log msg
+    puts "[#{self.name}] #{msg}"
   end
 
 end
