@@ -10,22 +10,6 @@ require_relative 'lib/spotifetch'
 # Oldest track 23 sep 2013
 
 
-ITUNES_ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE = 'itunes_enriched_individual_tracks_cache.json'
-
-def get_itunes_track_price track_id
-  uri = URI.parse(ITUNES_TRACK_API_URL % track_id)
-  response = JSON.parse(Net::HTTP.get(uri))
-
-  if response['results'].empty?
-    {}
-  else
-    {
-      'price' => response['results'].first['trackPrice'],
-      'currency' => response['results'].first['currency'],
-    }
-  end
-end
-
 def cache content, file, desc: 'objects'
   puts "Caching #{desc}..."
   File.open(file, 'w'){ |f| f.write(content.to_json) }
@@ -70,28 +54,6 @@ albums, individual_tracks = Spotifetch.group(tracks)
 # puts "Splitting albums that cannot be bought..."
 
 
-
-if File.exist?(ITUNES_ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE)
-  individual_tracks = JSON.parse( IO.read(ITUNES_ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE) )
-  puts "Loaded #{individual_tracks.count} individual tracks from #{ITUNES_ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE}"
-else
-  puts "Fetching track prices from iTunes..."
-  progressbar = ProgressBar.create(total: individual_tracks.count)
-  individual_tracks.each do |track|
-    if without_price?(track) && track['itunes_link']
-      itunes_ids = get_itunes_ids(track['itunes_link'])
-      if itunes_ids['track_id']
-        track.merge!(get_itunes_track_price(itunes_ids['track_id']))
-      end
-      sleep 0.1 # let's not hammer iTunes
-    end
-    progressbar.increment
-  end
-  puts "#{without_price(individual_tracks).count} prices still missing"
-  puts
-
-  cache(individual_tracks, ITUNES_ENRICHED_INDIVIDUAL_TRACKS_CACHE_FILE)
-end
 
 unless without_price(albums).empty?
   puts "A price could not be found for the following albums:"

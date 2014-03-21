@@ -15,3 +15,5 @@ enriched_albums = Lastfetch.fetch_albums(albums)
 itunes_albums = Itunesfetch.fetch_albums(enriched_albums)
 
 enriched_tracks = Lastfetch.fetch_tracks(individual_tracks)
+
+itunes_tracks = Itunesfetch.fetch_tracks(enriched_tracks)
