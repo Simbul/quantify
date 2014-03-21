@@ -15,6 +15,9 @@ enriched_albums = Lastfetch.fetch_albums(albums)
 
 itunes_albums = Itunesfetch.fetch_albums(enriched_albums)
 
+# Albums with a price of -1 cannot be bought on iTunes (only individual tracks available)
+# TODO: split albums into individual tracks
+
 enriched_tracks = Lastfetch.fetch_tracks(individual_tracks)
 
 itunes_tracks = Itunesfetch.fetch_tracks(enriched_tracks)
