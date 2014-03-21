@@ -7,7 +7,7 @@ require_relative 'utils'
 
 module Itunesfetch
 
-  extend Utils
+  include Utils
 
   COUNTRY = 'GB'
 

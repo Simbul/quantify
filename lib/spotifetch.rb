@@ -6,7 +6,7 @@ require_relative 'utils'
 
 module Spotifetch
 
-  extend Utils
+  include Utils
 
   TRACK_API_URL = 'http://ws.spotify.com/lookup/1/.json?uri=spotify:track:%s'
   ALBUM_API_URL = 'http://ws.spotify.com/lookup/1/.json?uri=spotify:album:%s&extras=track'

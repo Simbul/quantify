@@ -6,7 +6,7 @@ require_relative 'utils'
 
 module Lastfetch
 
-  extend Utils
+  include Utils
 
   raise "Your Last.fm API key must be provided in a file called lastfm_api_key" unless File.exist?('lastfm_api_key')
   LASTFM_API_KEY = IO.read('lastfm_api_key').chomp
