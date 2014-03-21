@@ -8,8 +8,7 @@ require_relative 'lib/utils'
 tracks = Spotifetch.fetch
 albums, individual_tracks = Spotifetch.group(tracks)
 
-consistency_check = albums.inject(0){ |sum, album| sum + album['track_ids'].count } + individual_tracks.count
-raise "Expected at least #{tracks.count} tracks but #{consistency_check} were found" unless consistency_check >= tracks.count
+Utils.consistency_check(albums, tracks, individual_tracks)
 
 enriched_albums = Lastfetch.fetch_albums(albums)
 

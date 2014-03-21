@@ -44,6 +44,11 @@ module Utils
       log "Cached #{desc} in #{file}"
       log
     end
+
+    def consistency_check albums, tracks, individual_tracks
+      consistency_check = albums.inject(0){ |sum, album| sum + album['track_ids'].count } + individual_tracks.count
+      raise "Expected at least #{tracks.count} tracks but #{consistency_check} were found" unless consistency_check >= tracks.count
+    end
   end
 
   extend ClassMethods
