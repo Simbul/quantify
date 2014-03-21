@@ -1,3 +1,5 @@
+require 'retryable'
+
 module Utils
 
   class HTTPResponseError < RuntimeError; end
@@ -27,8 +29,11 @@ module Utils
       uri = URI.parse(uri_string)
 
       begin
-        response = Net::HTTP.get_response(uri)
-        raise HTTPResponseError, "HTTP call response is #{response.code}: #{response.msg}" unless response.code == '200'
+        response = nil
+        retryable(:tries => 3) do
+          response = Net::HTTP.get_response(uri)
+          raise HTTPResponseError, "HTTP call response is #{response.code}: #{response.msg}" unless response.code == '200'
+        end
         json = JSON.parse(response.body)
       rescue Exception => e
         log "Error requesting #{uri}"
