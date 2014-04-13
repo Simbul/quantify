@@ -116,7 +116,11 @@ module Itunes
     response = Net::HTTP.get_response(uri)
 
     redirect = response['location']
-    itunes_url = URI.parse(CGI.parse(URI.parse(redirect).query)['url'].first)
+
+    # Redirect examples:
+    #  * album: https://itunes.apple.com/gb/album/clockwork-angels-tour-live/id721246255?uo=4&at=10l3Sh
+    #  * track: https://itunes.apple.com/gb/album/backaches-cardigans/id376346896?i=376346914&uo=4&at=10l3Sh
+    itunes_url = URI.parse(redirect)
     {
       'album_id' => itunes_url.path[/id(\d+)/, 1],
       'track_id' => itunes_url.query[/i=(\d+)/, 1],
