@@ -18,11 +18,11 @@ module Utils
     end
 
     def with_price? item
-      item.has_key?('price')
+      item.has_key?('price') && Float(item['price']) > 0
     end
 
     def without_price? item
-      !item.has_key?('price')
+      !item.has_key?('price') || Float(item['price']) <= 0
     end
 
     def get uri_string
